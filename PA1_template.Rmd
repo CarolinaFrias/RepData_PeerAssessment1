@@ -1,25 +1,129 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "PA1_Template.rmd"
+author: "Carolina Frias"
+date: "Monday, January 12, 2015"
+output: html_document
 ---
+## Reproductible Data - Course Project 1
 
+### Loading and preprocessing data
+Read the data using read.csv():
+```{r}
+data <- read.csv("C:/Users/Carolina/Desktop/R/activity.csv", head=TRUE, na.strings="NA")
+data$date <- as.Date(data$date)
+```
 
-## Loading and preprocessing the data
+### What is mean total number of steps taken per day?
+Sum of steps by day:
+```{r}
+subdata <- subset(data, !is.na(data$steps))
+dailysteps <- tapply(subdata$steps, subdata$date, sum, na.rm=TRUE, simplify=T)
+dailysteps <- dailysteps[!is.na(dailysteps)]
+```
+Histogram of number of steps taken each day (using base graphics):
+```{r}
+hist(x=dailysteps, 
+       col="pink", 
+       breaks=20,
+       xlab="Total steps by day",
+       ylab="Frequency",
+       main = "Total number of steps taken each day")
+```
+Mean of steps taken by day:
+```{r}
+mean(dailysteps)
+```
+Median of steps taken by day:
+```{r}
+median(dailysteps)
+```
+We can see that the mean and median of the total number of steps taken each day are very similar, and the histogram **resemble** a normal distribution. 
 
+### What is the average daily activity pattern?
+Average daily activity pattern:
+```{r}
+average <- tapply(subdata$steps, subdata$interval, mean, na.rm=TRUE, simplify=T)
+daily_act <- data.frame(interval=as.integer(names(average)), avg=average)
+```
+Time series plot of the 5-minute interval and the average number of steps taken, averaged across all days:
+```{r}
+with(daily_act, 
+       plot(interval,
+            avg, 
+            type="l", 
+            xlab = "5 min intervals", 
+            ylab = "Average steps by interval", 
+            main = "Average daily activity pattern"))
+```
 
+Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+```{r}
+max_steps <- max(daily_act$avg)
+daily_act[daily_act$avg == max_steps, ]
+```
+The 5-min interval that contains the maximum number of steps is the 835th interval, with 206 steps (in average).
 
-## What is mean total number of steps taken per day?
+### Imputing missing values
+What is the total number of missing values in the dataset?
+```{r}
+sum(is.na(data$steps))
+```
+The total number os NA's in the dataset is 2304.
 
+Use the mean of the 5 min interval to replace the missing values and create a new dataset:
+```{r}
+data_na <- data
+new_steps <- is.na(data_na$steps)
+average <- tapply(subdata$steps, subdata$interval, mean, na.rm=TRUE, simplify=T)
+data_na$steps[new_steps] <- average[as.character(data_na$interval[new_steps])]
+```
+Histogram of the total number of steps taken each day:
+```{r}
+new_daily <- tapply(data_na$steps, data_na$date, sum, na.rm=TRUE, simplify=T)
+hist(x=new_daily, 
+       col="pink", 
+       breaks=20, 
+       xlab="Steps per day", 
+       ylab="Frequency", 
+       main="Total number of steps taken each day (with missing data)")
+```
+Mean and median total number of steps taken per day, with missing values imputed: 
+```{r}
+mean(new_daily)
+```
+```{r}
+median(new_daily)
+```
+Do these values differ from the estimates from the first part of the assignment? 
 
+The mean is still the same, but the median is now exactly the same as the mean.
 
-## What is the average daily activity pattern?
+What is the impact of imputing missing data on the estimates of the total daily number of steps?
 
+With the missing values the distribution is now closer to a normal distribution and the mean and median have the same value.
 
-
-## Imputing missing values
-
-
-
-## Are there differences in activity patterns between weekdays and weekends?
+### Are there differences in activity patterns between weekdays and weekends?
+New factor variable in the dataset with two levels - "weekday" and "weekend":
+```{r}
+is_weekday <- function(d) {
+        wd <- weekdays(d)
+        ifelse (wd == "Saturday" | wd == "Sunday", "weekend", "weekday")
+}
+```
+```{r}
+wx <- sapply(data_na$date, is_weekday)
+```
+```{r}
+data_na$wk <- as.factor(wx)
+```
+```{r}
+week_data <- aggregate(steps ~ wk+interval, data=data_na, FUN=mean)
+library(lattice)
+xyplot(steps ~ interval | factor(wk), 
+         layout = c(1, 2), 
+         xlab="Interval", 
+         ylab="Number of steps", 
+         type="l", 
+         lty=1, 
+         data=week_data)
+```
